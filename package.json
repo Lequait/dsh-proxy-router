@@ -1,0 +1,60 @@
+{
+  "name": "dsh-proxy-router",
+  "version": "0.2.1",
+  "description": "订阅链接 → 本地代理内核 → 直连优先、直连失败自动切代理；内核自动探测/自动下载，用户只需填订阅地址。 | Subscription link to a local core: direct-first fetching with automatic proxy fallback; the core is auto-detected or auto-downloaded, so the subscription link is the only input.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Lequait",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lequait/dsh-proxy-router.git"
+  },
+  "homepage": "https://github.com/Lequait/dsh-proxy-router#readme",
+  "bugs": {
+    "url": "https://github.com/Lequait/dsh-proxy-router/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "proxy",
+    "subscription",
+    "clash",
+    "mihomo",
+    "fallback"
+  ],
+  "engines": {
+    "dsh": ">=0.1.0-rc.6"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./core": "./lib/core.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "scripts": {
+    "test": "node test/selftest.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "meta": {
+    "title": "代理路由器",
+    "description": "订阅链接 → 本地内核 → 直连优先，直连失败自动切代理；附节点健康检查与按主机路由学习"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "cordis.patch.yml",
+    "locale",
+    "LICENSE",
+    "README.md",
+    "README.en.md",
+    "test"
+  ]
+}
