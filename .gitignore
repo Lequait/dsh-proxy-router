@@ -6,3 +6,4 @@ run/
 config.yaml
 providers/
 routes.json
+*.tgz
