@@ -1,0 +1,4 @@
+{
+  "title": "Proxy Router",
+  "description": "Turn a subscription link into a local core, keep direct-first fetching and fall back to the proxy when direct fails; includes node health checks and per-host routing memory."
+}

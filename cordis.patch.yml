@@ -1,0 +1,9 @@
+- insert:
+    - id: proxy-router
+      name: dsh-proxy-router
+      config:
+        subscriptionUrl: ''
+        autoStart: false
+        mixedPort: 19097
+        controllerPort: 19098
+        directTimeoutMs: 8000
