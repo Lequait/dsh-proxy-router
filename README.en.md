@@ -36,7 +36,25 @@ dsh plugin --profile <your-profile> add github:Lequait/dsh-proxy-router
 
 Restart the harness; the `proxy_router` tool then appears in the session.
 
-## Configuration
+## The subscription link is the only input
+
+Nothing else is required. Two ways to hand it over:
+
+**1. Give it to the agent (zero config, recommended)**
+
+```
+proxy_router { action: "start", subscriptionUrl: "https://your-subscription-url" }
+```
+
+The link is remembered at `<DSH_HOME>/cache/proxy-router/subscription.txt`, so later `status` / `test` / `fetch` calls need nothing.
+
+**2. Put it in the plugin config** (for auto-start with the harness) - fill `subscriptionUrl` and set `autoStart: true`.
+
+### The core is found for you
+
+On start it looks for mihomo in order: **`DSH_PROXY_CORE` -> PATH -> common install dirs -> running core processes -> Windows uninstall registry**. A running Clash Verge supplies `verge-mihomo.exe` this way, whatever drive it lives on. If nothing is found it **downloads** mihomo (falling back across mirrors) into `<DSH_HOME>/cache/proxy-router/bin/`. `corePath` and `DSH_PROXY_CORE` are optional advanced overrides, never requirements.
+
+## Configuration (all optional)
 
 Edit the `proxy-router` entry's `config` in your profile's `cordis.patch.yml`:
 
@@ -54,7 +72,7 @@ Edit the `proxy-router` entry's `config` in your profile's `cordis.patch.yml`:
 | Field | Default | Meaning |
 |---|---|---|
 | `subscriptionUrl` | `''` | Subscription link; Clash YAML and base64 node lists both supported |
-| `corePath` | auto-detect | Path to mihomo / verge-mihomo, or set `DSH_PROXY_CORE` |
+| `corePath` | auto-detect -> auto-download | **Usually leave empty**; set it only to force a specific core binary |
 | `autoStart` | `false` | Start the core with the harness |
 | `mixedPort` / `controllerPort` | 19097 / 19098 | Local mixed port and controller port |
 | `directTimeoutMs` / `proxyTimeoutMs` | 8000 / 12000 | Timeout budget per route |

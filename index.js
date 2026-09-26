@@ -15,9 +15,10 @@
  *   - 不 import 任何 @deepseek-ai/* 包（link: 安装的插件解析不到 harness 的 node_modules）；
  *   - 不在 apply() 里做网络/进程动作，默认 autoStart=false，避免拖慢或拖挂启动。
  */
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startRouter, detectCore, createSmartFetch, parseSubscription, directFetch } from './lib/core.mjs';
+import { startRouterAuto, detectCore, createSmartFetch } from './lib/core.mjs';
 
 export const name = 'proxy-router';
 export const inject = ['tools'];
@@ -49,22 +50,32 @@ export function apply(ctx, config) {
     directTimeoutMs: cfg.directTimeoutMs, proxyTimeoutMs: cfg.proxyTimeoutMs,
   });
 
-  async function ensureRouter() {
+  // 订阅地址：配置 > 记住的文件（用户直接把链接给 agent 时写入）。内核：配置 > 自动探测 > 自动下载。
+  const subFile = path.join(runDir, 'subscription.txt');
+  function savedSubscription() { try { return fs.readFileSync(subFile, 'utf8').trim(); } catch (e) { return ''; } }
+  function resolveSubscription() { return String(cfg.subscriptionUrl || savedSubscription() || '').trim(); }
+  function rememberSubscription(url) {
+    const u = String(url || '').trim();
+    if (!u) return;
+    try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(subFile, u, 'utf8'); log('已记住订阅地址'); } catch (e) {}
+  }
+  async function ensureRouter(passedUrl) {
+    if (passedUrl) rememberSubscription(passedUrl);
     if (router) return router;
     if (starting) return starting;
-    if (!cfg.subscriptionUrl) throw new Error('未配置 subscriptionUrl（在插件配置里填订阅链接，或直接调用 action=start 前先配置）');
-    if (!cfg.corePath && !detectCore()) throw new Error('找不到 mihomo 内核：请设置 corePath（例如 G:\\Clash Verge\\verge-mihomo.exe）');
-    starting = startRouter({
-      coreExe: cfg.corePath || undefined, dir: runDir, subUrl: cfg.subscriptionUrl,
+    const subUrl = resolveSubscription();
+    if (!subUrl) throw new Error('还没有订阅地址：直接把链接给我就行 —— proxy_router { action: "start", subscriptionUrl: "https://..." }（会被记住，之后不用再给）；也可以写进插件配置的 subscriptionUrl');
+    starting = startRouterAuto({
+      coreExe: cfg.corePath || undefined, dir: runDir, home: base, subUrl,
       mixedPort: cfg.mixedPort, controllerPort: cfg.controllerPort, secret: cfg.secret,
-      healthUrl: cfg.healthUrl, concurrency: 8,
+      healthUrl: cfg.healthUrl, concurrency: 8, log: log,
     }).then((r) => { router = r; smart.setProxy(r.proxyUrl); starting = null; log('内核已启动 ' + r.version + ' ' + r.proxyUrl + ' pid=' + r.pid); return r; })
       .catch((e) => { starting = null; throw e; });
     return starting;
   }
 
   async function statusPayload() {
-    const payload = { running: !!router, proxy: router ? router.proxyUrl : null, subscriptionConfigured: !!cfg.subscriptionUrl, routes: smart.state() };
+    const payload = { running: !!router, proxy: router ? router.proxyUrl : null, subscriptionConfigured: !!resolveSubscription(), corePath: cfg.corePath || detectCore() || null, coreManaged: !cfg.corePath, routes: smart.state() };
     if (router) {
       const st = await router.status();
       payload.core = { version: st.version, pid: router.pid, selected: st.selected, nodes: st.total, tested: st.tested, healthy: st.healthy.slice(0, 10), healthyCount: st.healthy.length };
@@ -78,6 +89,7 @@ export function apply(ctx, config) {
     properties: {
       action: { type: 'string', description: 'status=状态 | start=启动内核 | stop=停止 | test=实测节点健康 | fetch=按直连优先取回一个 URL | routes=查看路由记忆 | forget=清空路由记忆' },
       url: { type: 'string', description: 'action=fetch 时取回的 URL' },
+      subscriptionUrl: { type: 'string', description: '订阅链接；只在第一次需要给，插件会记住（也可写进插件配置 subscriptionUrl）' },
       force: { type: 'boolean', description: 'action=fetch 时忽略已学到的路由，强制重新直连优先' },
     },
     required: ['action'],
@@ -107,7 +119,7 @@ export function apply(ctx, config) {
       const action = String((args && args.action) || 'status');
       try {
         if (action === 'start') {
-          const r = await ensureRouter();
+          const r = await ensureRouter(args.subscriptionUrl);
           const data = await statusPayload();
           return { ok: true, action: action, detail: '内核已启动：' + r.version + ' @ ' + r.proxyUrl + '（pid ' + r.pid + '）', data: JSON.stringify(data, null, 1) };
         }
@@ -117,7 +129,7 @@ export function apply(ctx, config) {
           return { ok: true, action: action, detail: '内核已停止' };
         }
         if (action === 'test') {
-          const r = await ensureRouter();
+          const r = await ensureRouter(args.subscriptionUrl);
           const st = await r.status();
           return { ok: st.healthy.length > 0, action: action, detail: '测试 ' + st.tested + ' 个节点，健康 ' + st.healthy.length + ' 个，当前选择 ' + st.selected, data: JSON.stringify(st.healthy.slice(0, 20), null, 1) };
         }
@@ -132,6 +144,7 @@ export function apply(ctx, config) {
         }
         if (action === 'fetch') {
           if (!args.url) return { ok: false, action: action, detail: 'action=fetch 需要 url 参数' };
+          if (args.subscriptionUrl && !router) await ensureRouter(args.subscriptionUrl);
           const r = await smart.fetch(String(args.url), { force: !!args.force });
           const detail = r.ok
             ? '取回成功：' + r.status + '，经 ' + r.route + '（' + r.ms + 'ms，尝试 ' + r.tried.join('→') + '）'
@@ -151,9 +164,9 @@ export function apply(ctx, config) {
 
   ctx.effect(() => () => { if (router) { try { router.stop(); } catch (e) {} router = null; } });
 
-  if (cfg.autoStart && cfg.subscriptionUrl) {
+  if (cfg.autoStart && resolveSubscription()) {
     ensureRouter().catch((e) => log('自动启动失败：' + (e && e.message ? e.message : String(e))));
   } else {
-    log('已挂载（autoStart=' + String(cfg.autoStart) + '，订阅' + (cfg.subscriptionUrl ? '已配置' : '未配置') + '）');
+    log('已挂载（autoStart=' + String(cfg.autoStart) + '，订阅' + (resolveSubscription() ? '已配置' : '未配置') + '，内核' + (detectCore() || '未发现(首次启动时自动下载)') + '）');
   }
 }

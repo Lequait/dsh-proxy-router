@@ -42,7 +42,30 @@ dsh plugin --profile <你的profile> add github:Lequait/dsh-proxy-router
 
 重启 harness 后，会话里会出现 `proxy_router` 工具。
 
-## 配置
+## 你只需要一个订阅地址
+
+其它都不用配。两种给法，任选其一：
+
+**① 直接把链接交给 agent（推荐，零配置）**
+
+```
+proxy_router { action: "start", subscriptionUrl: "https://你的订阅链接" }
+```
+
+插件会记住它（存在 `<DSH_HOME>/cache/proxy-router/subscription.txt`），之后 `status` / `test` / `fetch` 都不用再给。
+
+**② 写进插件配置**（想让内核随 harness 自动启动时用）
+
+上面配置表里的 `subscriptionUrl` 填一行即可，并可把 `autoStart` 设为 `true`。
+
+### 内核不用你操心
+
+启动时会按顺序找 mihomo：**环境变量 `DSH_PROXY_CORE` → PATH → 常见安装目录 → 正在运行的内核进程 → Windows 注册表卸载项**。
+你机器上正在跑的 Clash Verge 自带内核（`verge-mihomo.exe`）就是这样被自动找到的，与安装在哪个盘无关。
+都没有时会**自动下载** mihomo（GitHub 直连失败会自动换镜像源）到 `<DSH_HOME>/cache/proxy-router/bin/`。
+所以 `corePath` 和 `DSH_PROXY_CORE` 都是**可选的高级选项**，不是必填项。
+
+## 配置（全部可选）
 
 在 profile 的 `cordis.patch.yml` 里改 `proxy-router` 条目的 `config`：
 
@@ -63,7 +86,7 @@ dsh plugin --profile <你的profile> add github:Lequait/dsh-proxy-router
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `subscriptionUrl` | `''` | 订阅链接；支持 Clash YAML 与 base64 节点列表 |
-| `corePath` | 自动探测 | mihomo / verge-mihomo 可执行文件路径，也可用环境变量 `DSH_PROXY_CORE` |
+| `corePath` | 自动探测→自动下载 | **通常不用填**；要强制指定内核路径时才填（或设 `DSH_PROXY_CORE`） |
 | `autoStart` | `false` | 是否随 harness 启动内核 |
 | `mixedPort` / `controllerPort` | 19097 / 19098 | 本地混合端口与控制器端口（避开 Clash Verge 的 7897/9097） |
 | `directTimeoutMs` / `proxyTimeoutMs` | 8000 / 12000 | 两条路的超时预算 |

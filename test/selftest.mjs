@@ -6,6 +6,7 @@ import path from 'node:path';
 import { startRouter, createSmartFetch, directFetch, proxyFetch } from '../lib/core.mjs';
 
 const RUN = path.join(process.env.DSH_HOME || os.tmpdir(), 'proxy-router-selftest');
+fs.rmSync(path.join(RUN, 'state.json'), { force: true });   // 测试必须自隔离
 const results = [];
 const check = (name, ok, detail) => { results.push((ok ? 'PASS  ' : 'FAIL  ') + name + '  ' + detail); return ok; };
 
